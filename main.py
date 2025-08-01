@@ -5,7 +5,7 @@ import subprocess
 import os
 import win32gui
 import tqdm
-import keyboard
+import data
 from pygame.locals import DOUBLEBUF, OPENGL
 from OpenGL.GL import *
 from OpenGL.GLU import gluOrtho2D
@@ -48,13 +48,25 @@ music.load(music_path)
 
 theme = 0
 
+def debug(): ...
+
 def update_camera(time, event):
     if time < event[0]["endTime"]:
+        if time < event[0]["time"]:
+            return event[0]["value"]
         p = (time - event[0]["time"]) / (event[0]["endTime"] - event[0]["time"])
         return event[0]["value"] + (event[0]["end"] - event[0]["value"]) * easings[event[0]["easeType"]](p)
     else:
         event.pop(0)
         return update_camera(time, event)
+
+def update_data():
+    data.judges.combo = (
+        data.judges.hit if data.judges.hit <= 5 else
+        data.judges.hit * 2 - 5 if 5 <= data.judges.hit <= 8 else
+        data.judges.hit * 3 - 13 if 8 <= data.judges.hit <= 11 else
+        data.judges.hit * 4 - 24
+    )
 
 camerax = 0
 camerascale = 1
@@ -144,7 +156,7 @@ else:
 
         theme = 0
         glClearColor(*themes[theme]["colorsList"][0])
-        for i in enumerate(challenge_times.copy()):
+        for i in enumerate(challenge_times.copy())[::-1]:
             if now_time > i[1]["end"]:
                 challenge_times.remove(i[1])
             elif now_time > i[1]["start"]:

@@ -1,4 +1,5 @@
 import random
+import data
 from func import *
 from const import *
 from easings import *
@@ -74,6 +75,7 @@ class Canvas:
         if time < event[0]["endTime"]:
             p = (time - event[0]["time"]) / (event[0]["endTime"] - event[0]["time"])
             #return event[0]["lfp"] + (event[0]["value"] + (event[0]["value"] + (event[0]["end"] - event[0]["value"]) * p)) * (time - event[0]["time"]) / 2
+            #搞半天才发现是瞬变。这个入是不会写匀变speed吗。
             return event[0]["lfp"] + event[0]["fp"] * p
         else:
             event.pop(0)
@@ -129,7 +131,7 @@ class LinePoint:
 
     def render(self, scale):
         if self.alpha+self.endalpha <= 0: return
-        draw_easings_line(self.x, self.ny, self.endx, self.endy, min(LINEWIDTH*scale, 10), self.nowcolor, self.alpha, self.nowendcolor, self.endalpha, self.ease)
+        draw_easings_line(self.x, self.ny, self.endx, self.endy, max(min(LINEWIDTH*scale, 10), 1), self.nowcolor, self.alpha, self.nowendcolor, self.endalpha, self.ease)
 
 class Line:
     def __init__(self, data: dict, bpm_list, canvaslist: list[Canvas]):
@@ -206,7 +208,7 @@ class Line:
     def update_color_alpha(self, time, event):
         if time < event[0]["endTime"]:
             if time < event[0]["time"]:
-                return (1, 1, 1), 0
+                return event[0]["startColor"], 1
             else:
                 p = (time - event[0]["time"]) / (event[0]["endTime"] - event[0]["time"])
                 return linear_color(event[0]["startColor"], event[0]["endColor"], p, 1)
@@ -252,7 +254,7 @@ class Line:
                 self.hits.remove(i)
 
     def draw(self, time, scale):
-        if self.ralpha > 0 and self.end_time >= time >= self.start_time:
+        if self.ralpha > 0 and time <= self.end_time:
             draw_circle(self.x, Y, 26 * WIDTH_SCALE * scale, 22 * WIDTH_SCALE * scale, self.ralpha, self.rcolor)
 
 class Note:
@@ -286,7 +288,8 @@ class Note:
         if time >= self.time:
             if not self.click:
                 self.click = True
-                self.play_hit = True
+                if self.type == 2:
+                    self.play_hit = True
                 NOTE_SOUNDS[1 if self.type == 1 else 0].play()
             if self.type == 2 and time < self.endtime:
                 if not nowpoint is None:
@@ -295,6 +298,7 @@ class Note:
                 self.length = self.nowendfp
                 self.nowfp = 0
             else:
+                data.judges.hit += 1
                 return True
         else:
             self.length = self.nowendfp-self.nowfp
@@ -339,7 +343,7 @@ class Hit:
 
     def update(self, time: float, color, scale) -> None:
         self.now_time = time - self.start_time
-        if self.now_time > 0.545 or self.now_time < 0:
+        if self.now_time > 0.5 or self.now_time < 0:
             return True
         self.progress = self.now_time / 0.5
         self.hit_i = max(min(math.floor(self.progress * 39), 39), 0)
@@ -348,6 +352,7 @@ class Hit:
     def draw(self, color, scale) -> None:
         if self.progress <= 1:
             draw_texture(HIT_TEXTURES[self.hit_i], self.x, self.y, HIT_SCALE * scale, HIT_SCALE * scale, 0, 1, (0.5, 0.5), color)
+        n = 0
         for r, d, s in zip(self.rot, self.distance, self.size):
             p = self.progress
             if p >= 0 and p <= 1:

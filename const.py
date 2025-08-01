@@ -2,8 +2,8 @@ import pygame
 if not pygame.get_init():
     pygame.init()
 
-WIDTH = 1080
-HEIGHT = 1920
+WIDTH = 540
+HEIGHT = 960
 SPEED = 3.2 # 1.0-10.0
 WIDTH_SCALE = WIDTH / 540
 HEIGHT_SCALE = HEIGHT / 960
