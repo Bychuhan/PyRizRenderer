@@ -156,7 +156,7 @@ else:
 
         theme = 0
         glClearColor(*themes[theme]["colorsList"][0])
-        for i in enumerate(challenge_times.copy())[::-1]:
+        for i in enumerate(challenge_times.copy()):
             if now_time > i[1]["end"]:
                 challenge_times.remove(i[1])
             elif now_time > i[1]["start"]:
