@@ -29,6 +29,12 @@ def parse_chart(chart_path):
         for i in challenge_times:
             i["start"] = to_real_time(bpm_shifts, i["start"])
             i["end"] = to_real_time(bpm_shifts, i["end"])
+        for i in enumerate(challenge_times):
+            i[1]["noendanim"] = False
+            if i[0] != len(challenge_times)-1:
+                if i[1]["end"] > challenge_times[i[0]+1]["start"]:
+                    i[1]["end"] = challenge_times[i[0]+1]["start"]
+                    i[1]["noendanim"] = True
         for i in camera_move:
             i["time"] = to_real_time(bpm_shifts, i["time"])
             i["value"] *= WIDTH

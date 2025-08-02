@@ -39,9 +39,10 @@ class Canvas:
             else:
                 i[1]["endTime"] = self.xmove_event[i[0]+1]["time"]
                 i[1]["end"] = self.xmove_event[i[0]+1]["value"]
+        self.x = self.xmove_event[0]["value"]
         for i in self.speed_event:
             i["time"] = to_real_time(self.bpm_list, i["time"])
-            i["value"] *= HEIGHT#(HEIGHT * (215 / 32 + SPEED) * (10 / 129))
+            i["value"] *= HEIGHT * (215 / 32 + SPEED) * (10 / 129)
         for i in enumerate(self.speed_event):
             if i[0] >= len(self.speed_event) - 1:
                 i[1]["endTime"] = 9999999
@@ -208,7 +209,7 @@ class Line:
     def update_color_alpha(self, time, event):
         if time < event[0]["endTime"]:
             if time < event[0]["time"]:
-                return event[0]["startColor"], 1
+                return event[0]["startColor"][:3], event[0]["startColor"][3]
             else:
                 p = (time - event[0]["time"]) / (event[0]["endTime"] - event[0]["time"])
                 return linear_color(event[0]["startColor"], event[0]["endColor"], p, 1)
@@ -220,8 +221,7 @@ class Line:
         if self.color_event:
             self.lcolor, self.lalpha = self.update_color_alpha(time, self.color_event)
         if self.ring_color_event:
-            if time >= self.ring_color_event[0]["time"]:
-                self.rcolor, self.ralpha = self.update_color_alpha(time, self.ring_color_event)
+            self.rcolor, self.ralpha = self.update_color_alpha(time, self.ring_color_event)
         for i in self.points.copy():
             if i.update(time, self.lcolor, self.lalpha, scale):
                 self.points.remove(i)
@@ -231,6 +231,8 @@ class Line:
             if time > self.points[0].time:
                 p = min((time - self.points[0].time) / (self.points[0].endtime - self.points[0].time) if self.points[0].endtime - self.points[0].time > 0 else 0, 1)
                 self.x = self.points[0].x + (self.points[0].endx - self.points[0].x) * easings[self.points[0].ease](p)
+            else:
+                self.x = self.points[0].x
 
     def update_note(self, time, color, scale):
         nowp = None
@@ -240,10 +242,11 @@ class Line:
                 break
         for i in self.notes.copy():
             if i.update(time, color, nowp, scale):
-                self.hits.append(Hit(self.x, i.endtime))
+                if i.type != 2:
+                    self.hits.append(Hit(self.x, i.endtime))
                 self.notes.remove(i)
             if i.play_hit:
-                self.hits.append(Hit(self.x, i.time))
+                self.hits.append(Hit(self.x, i.htime))
                 i.play_hit=False
             if i.y > HEIGHT+10:
                 break
@@ -254,7 +257,7 @@ class Line:
                 self.hits.remove(i)
 
     def draw(self, time, scale):
-        if self.ralpha > 0 and time <= self.end_time:
+        if self.ralpha > 0 and self.start_time <= time <= self.end_time:
             draw_circle(self.x, Y, 26 * WIDTH_SCALE * scale, 22 * WIDTH_SCALE * scale, self.ralpha, self.rcolor)
 
 class Note:
@@ -279,6 +282,9 @@ class Note:
         self.x = -99999
         self.play_hit = False
         self.click = False
+        self.hsize = 1
+        self.isend = False
+        self.htime = 0
         self.p = min((self.time - self.point.time) / (self.point.endtime - self.point.time) if self.point.endtime - self.point.time > 0 else 0, 1)
 
     def update(self, time, color, nowpoint: LinePoint, scale):
@@ -290,6 +296,7 @@ class Note:
                 self.click = True
                 if self.type == 2:
                     self.play_hit = True
+                    self.htime = self.time
                 NOTE_SOUNDS[1 if self.type == 1 else 0].play()
             if self.type == 2 and time < self.endtime:
                 if not nowpoint is None:
@@ -298,8 +305,21 @@ class Note:
                 self.length = self.nowendfp
                 self.nowfp = 0
             else:
-                data.judges.hit += 1
-                return True
+                if not self.isend:
+                    data.judges.hit += 1
+                    self.isend = True
+                    if self.type == 2:
+                        self.play_hit = True
+                        self.htime = self.endtime
+                if self.type == 2 and time < self.endtime+0.25:
+                    if not nowpoint is None:
+                        self.point = nowpoint
+                        self.p = min((time - self.point.time) / (self.point.endtime - self.point.time) if self.point.endtime - self.point.time > 0 else 0, 1)
+                    self.length = 0
+                    self.nowfp = 0
+                    self.hsize = 1 - easings[4]((time-self.endtime)/0.25)
+                else:
+                    return True
         else:
             self.length = self.nowendfp-self.nowfp
         self.length *= scale
@@ -322,9 +342,9 @@ class Note:
                 draw_rect(self.x-9 * _s, self.y, 4 * _s, self.length*0.8, 0, 1, (0.5, 0), (0, 0, 0))
                 draw_rect(self.x+9 * _s, self.y+self.length*0.8, 4 * _s, self.length*0.2, 0, 1, (0.5, 0), (0, 0, 0), (0, 0, 0, 0))
                 draw_rect(self.x-9 * _s, self.y+self.length*0.8, 4 * _s, self.length*0.2, 0, 1, (0.5, 0), (0, 0, 0), (0, 0, 0, 0))
-            draw_circle(self.x, self.y, 20 * _s, 0, 1, (0, 0, 0))
+            draw_circle(self.x, self.y, 20 * _s * self.hsize, 0, 1, (0, 0, 0))
             if self.type == 2:
-                draw_circle(self.x, self.y, 12 * _s, 0, 1, (1, 1 ,1))
+                draw_circle(self.x, self.y, 12 * _s * self.hsize, 0, 1, (1, 1 ,1))
             else:
                 draw_circle(self.x, self.y, 12 * _s, 0, 1, color)
 
