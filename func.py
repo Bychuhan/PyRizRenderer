@@ -47,11 +47,16 @@ def linear_color(scolor, ecolor, p, type=0):
         return (r, g, b), a
 
 def draw_easings_line(x1, y1, x2, y2, width, color, alpha, endcolor, endalpha, easingtype, q=32):
+    glColor4f(*color, alpha)
+    glLineWidth(width)
+    glBegin(GL_LINE_STRIP)
+    glVertex2f(x1, y1)
+    if easingtype == 0 or x1 == x2:
+        glColor4f(*endcolor, endalpha)
+        glVertex2f(x2, y2)
+        glEnd()
+        return
     o = 1/q
-    ux = x1
-    uy = y1
-    ua = alpha
-    uc = color
     for i in range(q):
         lp = o*(i+1)
         p = easings[easingtype](lp)
@@ -59,11 +64,9 @@ def draw_easings_line(x1, y1, x2, y2, width, color, alpha, endcolor, endalpha, e
         y = y1+(y2-y1)*lp
         a = alpha+(endalpha-alpha)*lp
         c = linear_color(color, endcolor, lp)
-        draw_line(ux, uy, x, y, width, (*uc, ua), (*c, a))
-        ux = x
-        uy = y
-        ua = a
-        uc = c
+        glColor4f(*c, a)
+        glVertex2f(x, y)
+    glEnd()
 
 def draw_quad(a:tuple[float,float],b:tuple[float,float],c:tuple[float,float],d:tuple[float,float],color:tuple[float,float,float,float],c2=None):
     glColor4f(*color)
