@@ -150,6 +150,7 @@ class Line:
         self.hits = []
         self.start_time = 0
         self.end_time = 0
+        self.now_point = None
         self.preload(canvaslist)
 
     def preload(self, canvaslist: list[Canvas]):
@@ -227,21 +228,18 @@ class Line:
                 self.points.remove(i)
             if i.ny > HEIGHT and i.endy > HEIGHT:
                 break
-        if self.points:
-            if time > self.points[0].time:
-                p = min((time - self.points[0].time) / (self.points[0].endtime - self.points[0].time) if self.points[0].endtime - self.points[0].time > 0 else 0, 1)
-                self.x = self.points[0].x + (self.points[0].endx - self.points[0].x) * easings[self.points[0].ease](p)
-            else:
-                self.x = self.points[0].x
-
-    def update_note(self, time, color, scale):
-        nowp = None
+        self.now_point = None
         for p in self.points:
             if time >= p.time and time <= p.endtime:
-                nowp = p
+                self.now_point = p
                 break
+        if self.points and self.start_time <= time <= self.end_time:
+            p = min((time - self.now_point.time) / (self.now_point.endtime - self.now_point.time) if self.now_point.endtime - self.now_point.time > 0 else 0, 1)
+            self.x = self.now_point.x + (self.now_point.endx - self.now_point.x) * easings[self.now_point.ease](p)
+
+    def update_note(self, time, color, scale):
         for i in self.notes.copy():
-            if i.update(time, color, nowp, scale):
+            if i.update(time, color, self.now_point, scale):
                 if i.type != 2:
                     self.hits.append(Hit(self.x, i.endtime))
                 self.notes.remove(i)
